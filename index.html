@@ -3,319 +3,163 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
-<meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="SPECS">
-<meta name="theme-color" content="#0c0c0e">
-<link rel="manifest" href="manifest.json">
 <title>SPECS — Virtual Try-On</title>
+<!-- face-api.js: runs ML face/landmark detection entirely in the browser, no API key needed -->
+<script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500&display=swap');
 
   :root {
-    --bg: #0c0c0e;
-    --surface: #16161a;
-    --border: #252530;
-    --accent: #c8f04f;
-    --text: #eeede8;
-    --muted: #55555f;
+    --bg: #0c0c0e; --surface: #16161a; --border: #252530;
+    --accent: #c8f04f; --text: #eeede8; --muted: #55555f;
   }
-
   * { box-sizing: border-box; margin: 0; padding: 0; }
 
   body {
-    background: var(--bg);
-    color: var(--text);
+    background: var(--bg); color: var(--text);
     font-family: 'DM Sans', sans-serif;
-    min-height: 100dvh;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    overflow-x: hidden;
+    min-height: 100dvh; display: flex; flex-direction: column;
+    align-items: center; overflow-x: hidden;
   }
-
   body::before {
-    content: '';
-    position: fixed; inset: 0;
+    content:''; position:fixed; inset:0;
     background: radial-gradient(ellipse 70% 40% at 50% 0%, rgba(200,240,79,0.05) 0%, transparent 65%);
-    pointer-events: none;
+    pointer-events:none;
   }
 
   header {
-    width: 100%;
-    max-width: 500px;
-    padding: 24px 20px 0;
-    display: flex;
-    align-items: baseline;
-    gap: 10px;
+    width:100%; max-width:500px; padding:24px 20px 0;
+    display:flex; align-items:baseline; gap:10px;
   }
-  header h1 {
-    font-family: 'Bebas Neue', sans-serif;
-    font-size: 46px;
-    letter-spacing: 3px;
-    color: var(--accent);
-    line-height: 1;
-  }
-  header .sub {
-    font-size: 11px;
-    color: var(--muted);
-    letter-spacing: 3px;
-    text-transform: uppercase;
-  }
+  header h1 { font-family:'Bebas Neue',sans-serif; font-size:46px; letter-spacing:3px; color:var(--accent); line-height:1; }
+  header .sub { font-size:11px; color:var(--muted); letter-spacing:3px; text-transform:uppercase; }
 
-  .main {
-    width: 100%;
-    max-width: 500px;
-    padding: 16px 16px 32px;
-    display: flex;
-    flex-direction: column;
-    gap: 14px;
-    flex: 1;
-  }
+  .main { width:100%; max-width:500px; padding:16px 16px 32px; display:flex; flex-direction:column; gap:14px; flex:1; }
 
-  /* ── Upload screen ── */
-  #uploadScreen {
-    display: flex;
-    flex-direction: column;
-    gap: 14px;
-    flex: 1;
-  }
+  /* Upload */
+  #uploadScreen { display:flex; flex-direction:column; gap:14px; flex:1; }
 
   .upload-card {
-    flex: 1;
-    min-height: 220px;
-    border: 1.5px dashed var(--border);
-    border-radius: 20px;
-    background: var(--surface);
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    transition: border-color 0.2s, background 0.2s;
-    gap: 14px;
-    padding: 32px;
+    flex:1; min-height:200px; border:1.5px dashed var(--border); border-radius:20px;
+    background:var(--surface); display:flex; flex-direction:column; align-items:center;
+    justify-content:center; cursor:pointer; transition:border-color .2s,background .2s; gap:14px; padding:32px;
   }
-  .upload-card:hover { border-color: var(--accent); background: #1a1a20; }
+  .upload-card:hover { border-color:var(--accent); background:#1a1a20; }
+  .upload-icon { width:60px;height:60px;border-radius:50%;border:1.5px solid var(--border);display:flex;align-items:center;justify-content:center;color:var(--muted);transition:border-color .2s,color .2s; }
+  .upload-card:hover .upload-icon { border-color:var(--accent);color:var(--accent); }
+  .upload-text strong { display:block;font-size:15px;font-weight:500;color:var(--text);margin-bottom:4px;text-align:center; }
+  .upload-text span { font-size:13px;color:var(--muted);text-align:center;display:block; }
 
-  .upload-icon {
-    width: 60px; height: 60px;
-    border-radius: 50%;
-    border: 1.5px solid var(--border);
-    display: flex; align-items: center; justify-content: center;
-    color: var(--muted);
-    transition: border-color 0.2s, color 0.2s;
-  }
-  .upload-card:hover .upload-icon { border-color: var(--accent); color: var(--accent); }
-
-  .upload-text strong {
-    display: block;
-    font-size: 15px;
-    font-weight: 500;
-    color: var(--text);
-    margin-bottom: 4px;
-    text-align: center;
-  }
-  .upload-text span {
-    font-size: 13px;
-    color: var(--muted);
-    text-align: center;
-    display: block;
-  }
-
-  .upload-btns {
-    display: flex;
-    gap: 10px;
-  }
-
+  .upload-btns { display:flex; gap:10px; }
   .btn-upload {
-    flex: 1;
-    padding: 14px;
-    border-radius: 14px;
-    border: 1px solid var(--border);
-    background: var(--surface);
-    color: var(--text);
-    font-family: 'DM Sans', sans-serif;
-    font-size: 13px;
-    font-weight: 500;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-    transition: border-color 0.2s, background 0.2s;
+    flex:1; padding:14px; border-radius:14px; border:1px solid var(--border);
+    background:var(--surface); color:var(--text); font-family:'DM Sans',sans-serif;
+    font-size:13px; font-weight:500; cursor:pointer;
+    display:flex; align-items:center; justify-content:center; gap:8px;
+    transition:border-color .2s;
   }
-  .btn-upload:hover { border-color: var(--accent); }
-  .btn-upload.primary {
-    background: var(--accent);
-    color: #0c0c0e;
-    border-color: var(--accent);
-    font-weight: 600;
-  }
-  .btn-upload.primary:hover { opacity: 0.88; }
+  .btn-upload:hover { border-color:var(--accent); }
+  .btn-upload.primary { background:var(--accent);color:#0c0c0e;border-color:var(--accent);font-weight:600; }
+  .btn-upload.primary:hover { opacity:.88; }
 
-  /* ── Try-on screen ── */
-  #tryonScreen { display: none; flex-direction: column; gap: 14px; }
+  /* Try-on */
+  #tryonScreen { display:none; flex-direction:column; gap:14px; }
 
   .canvas-wrap {
-    width: 100%;
-    position: relative;
-    border-radius: 20px;
-    overflow: hidden;
-    background: #000;
-    touch-action: none;
-    user-select: none;
-    cursor: grab;
-    border: 1px solid var(--border);
+    width:100%; position:relative; border-radius:20px; overflow:hidden;
+    background:#000; touch-action:none; user-select:none; cursor:grab;
+    border:1px solid var(--border);
   }
-  .canvas-wrap:active { cursor: grabbing; }
-  .canvas-wrap canvas { width: 100%; height: auto; display: block; }
+  .canvas-wrap:active { cursor:grabbing; }
+  .canvas-wrap canvas { width:100%; height:auto; display:block; }
 
-  /* Side arrows */
   .arr-btn {
-    position: absolute;
-    top: 50%; transform: translateY(-50%);
-    width: 36px; height: 36px;
-    border-radius: 50%;
-    background: rgba(12,12,14,0.6);
-    border: 1px solid rgba(255,255,255,0.1);
-    color: var(--text);
-    font-size: 18px;
-    display: flex; align-items: center; justify-content: center;
-    cursor: pointer;
-    backdrop-filter: blur(6px);
-    transition: background 0.15s;
-    z-index: 2;
+    position:absolute; top:50%; transform:translateY(-50%);
+    width:36px;height:36px; border-radius:50%;
+    background:rgba(12,12,14,.6); border:1px solid rgba(255,255,255,.1);
+    color:var(--text); font-size:20px;
+    display:flex;align-items:center;justify-content:center;
+    cursor:pointer; backdrop-filter:blur(6px); transition:background .15s; z-index:2;
   }
-  .arr-btn:hover { background: rgba(200,240,79,0.2); }
-  .arr-btn.left { left: 10px; }
-  .arr-btn.right { right: 10px; }
+  .arr-btn:hover { background:rgba(200,240,79,.2); }
+  .arr-btn.left { left:10px; } .arr-btn.right { right:10px; }
 
-  .flash-overlay {
-    position: absolute; inset: 0;
-    background: rgba(200,240,79,0.07);
-    opacity: 0; pointer-events: none;
-    transition: opacity 0.08s;
-  }
-  .flash-overlay.on { opacity: 1; }
-
-  /* Loading overlay */
   .loading-overlay {
-    position: absolute; inset: 0;
-    background: rgba(12,12,14,0.75);
-    display: none;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 14px;
-    border-radius: 20px;
-    backdrop-filter: blur(4px);
+    position:absolute;inset:0;background:rgba(12,12,14,.78);
+    display:none;flex-direction:column;align-items:center;justify-content:center;
+    gap:14px;border-radius:20px;backdrop-filter:blur(4px);z-index:10;
   }
-  .loading-overlay.show { display: flex; }
-  .spinner {
-    width: 36px; height: 36px;
-    border: 3px solid var(--border);
-    border-top-color: var(--accent);
-    border-radius: 50%;
-    animation: spin 0.7s linear infinite;
-  }
-  @keyframes spin { to { transform: rotate(360deg); } }
-  .loading-text { font-size: 13px; color: var(--muted); letter-spacing: 1px; }
+  .loading-overlay.show { display:flex; }
+  .spinner { width:36px;height:36px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite; }
+  @keyframes spin { to{transform:rotate(360deg)} }
+  .loading-text { font-size:13px;color:var(--muted);letter-spacing:1px;text-align:center;padding:0 20px; }
 
-  /* Error banner */
-  .error-banner {
-    position: absolute; bottom: 14px; left: 14px; right: 14px;
-    background: rgba(200,60,60,0.85);
-    color: #fff;
-    border-radius: 10px;
-    padding: 10px 14px;
-    font-size: 13px;
-    display: none;
-    backdrop-filter: blur(4px);
-  }
-  .error-banner.show { display: block; }
+  .flash-overlay { position:absolute;inset:0;background:rgba(200,240,79,.07);opacity:0;pointer-events:none;transition:opacity .08s; }
+  .flash-overlay.on { opacity:1; }
 
-  /* Info bar */
-  .info-bar {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 0 2px;
+  /* Manual adjust controls */
+  .adjust-panel {
+    background:var(--surface); border:1px solid var(--border); border-radius:14px;
+    padding:14px; display:none; flex-direction:column; gap:10px;
   }
-  .g-name {
-    font-family: 'Bebas Neue', sans-serif;
-    font-size: 26px;
-    letter-spacing: 2px;
-  }
-  .g-count { font-size: 12px; color: var(--muted); letter-spacing: 1px; }
+  .adjust-panel.show { display:flex; }
+  .adjust-title { font-size:11px;color:var(--muted);letter-spacing:2px;text-transform:uppercase; }
 
-  /* Dots */
-  .dots {
-    display: flex; gap: 6px;
-    align-items: center; justify-content: center;
+  .slider-row { display:flex; align-items:center; gap:10px; }
+  .slider-lbl { font-size:12px;color:var(--muted);width:56px;flex-shrink:0; }
+  input[type=range] {
+    flex:1; -webkit-appearance:none; appearance:none;
+    height:3px; border-radius:2px; background:var(--border); outline:none; cursor:pointer;
   }
-  .dot {
-    width: 5px; height: 5px;
-    border-radius: 50%;
-    background: var(--border);
-    cursor: pointer;
-    transition: background 0.2s, transform 0.2s;
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance:none; width:16px;height:16px;border-radius:50%;
+    background:var(--accent); cursor:pointer;
   }
-  .dot.on { background: var(--accent); transform: scale(1.5); }
+  input[type=range]::-moz-range-thumb { width:16px;height:16px;border-radius:50%;background:var(--accent);cursor:pointer;border:none; }
 
-  /* Color row */
-  .opt-row { display: flex; align-items: center; gap: 8px; padding: 0 2px; }
-  .opt-lbl { font-size: 11px; color: var(--muted); letter-spacing: 2px; text-transform: uppercase; flex-shrink: 0; }
+  .info-bar { display:flex;align-items:center;justify-content:space-between;padding:0 2px; }
+  .g-name { font-family:'Bebas Neue',sans-serif;font-size:26px;letter-spacing:2px; }
+  .g-count { font-size:12px;color:var(--muted);letter-spacing:1px; }
 
-  .swatch {
-    width: 24px; height: 24px; border-radius: 50%;
-    border: 2px solid transparent;
-    cursor: pointer;
-    transition: transform 0.15s, border-color 0.15s;
-  }
-  .swatch:hover { transform: scale(1.15); }
-  .swatch.on { border-color: var(--text); }
+  .dots { display:flex;gap:6px;align-items:center;justify-content:center; }
+  .dot { width:5px;height:5px;border-radius:50%;background:var(--border);cursor:pointer;transition:background .2s,transform .2s; }
+  .dot.on { background:var(--accent);transform:scale(1.5); }
 
-  /* Tint row */
+  .opt-row { display:flex;align-items:center;gap:8px;padding:0 2px; }
+  .opt-lbl { font-size:11px;color:var(--muted);letter-spacing:2px;text-transform:uppercase;flex-shrink:0; }
+
+  .swatch { width:24px;height:24px;border-radius:50%;border:2px solid transparent;cursor:pointer;transition:transform .15s,border-color .15s; }
+  .swatch:hover { transform:scale(1.15); }
+  .swatch.on { border-color:var(--text); }
+
   .tint-btn {
-    flex: 1; padding: 8px 0;
-    border-radius: 8px;
-    border: 1px solid var(--border);
-    background: none; color: var(--muted);
-    font-size: 12px; cursor: pointer;
-    font-family: 'DM Sans', sans-serif;
-    transition: border-color 0.15s, color 0.15s, background 0.15s;
+    flex:1;padding:8px 0;border-radius:8px;border:1px solid var(--border);
+    background:none;color:var(--muted);font-size:12px;cursor:pointer;
+    font-family:'DM Sans',sans-serif;transition:border-color .15s,color .15s,background .15s;
   }
-  .tint-btn:hover { border-color: #555; color: var(--text); }
-  .tint-btn.on { border-color: var(--accent); color: var(--accent); background: rgba(200,240,79,0.06); }
+  .tint-btn:hover { border-color:#555;color:var(--text); }
+  .tint-btn.on { border-color:var(--accent);color:var(--accent);background:rgba(200,240,79,.06); }
 
-  /* Bottom actions */
-  .bottom-row { display: flex; gap: 10px; }
+  .bottom-row { display:flex;gap:10px; }
   .action-btn {
-    flex: 1; padding: 13px;
-    border-radius: 12px;
-    border: 1px solid var(--border);
-    background: var(--surface);
-    color: var(--muted);
-    font-family: 'DM Sans', sans-serif;
-    font-size: 13px; font-weight: 500;
-    cursor: pointer;
-    display: flex; align-items: center; justify-content: center; gap: 7px;
-    transition: border-color 0.15s, color 0.15s;
+    flex:1;padding:13px;border-radius:12px;border:1px solid var(--border);
+    background:var(--surface);color:var(--muted);font-family:'DM Sans',sans-serif;
+    font-size:13px;font-weight:500;cursor:pointer;
+    display:flex;align-items:center;justify-content:center;gap:7px;
+    transition:border-color .15s,color .15s;
   }
-  .action-btn:hover { border-color: var(--text); color: var(--text); }
-  .action-btn.accent-btn {
-    background: var(--accent); color: #0c0c0e;
-    border-color: var(--accent); font-weight: 600;
-  }
-  .action-btn.accent-btn:hover { opacity: 0.88; }
+  .action-btn:hover { border-color:var(--text);color:var(--text); }
+  .action-btn.accent-btn { background:var(--accent);color:#0c0c0e;border-color:var(--accent);font-weight:600; }
+  .action-btn.accent-btn:hover { opacity:.88; }
 
-  .hint {
-    text-align: center;
-    font-size: 11px; color: var(--muted);
-    letter-spacing: 1.5px; text-transform: uppercase;
+  .hint { text-align:center;font-size:11px;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase; }
+
+  .notice {
+    font-size:12px; color:var(--muted); text-align:center;
+    padding:8px 12px; border-radius:10px; background:var(--surface);
+    border:1px solid var(--border); line-height:1.6;
   }
+  .notice b { color:var(--text); }
 </style>
 </head>
 <body>
@@ -327,18 +171,17 @@
 
 <div class="main">
 
-  <!-- ── Upload Screen ── -->
+  <!-- Upload screen -->
   <div id="uploadScreen">
     <label class="upload-card" for="fileInput">
       <div class="upload-icon">
         <svg width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
-          <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
-          <circle cx="12" cy="7" r="4"/>
+          <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
         </svg>
       </div>
       <div class="upload-text">
         <strong>Upload a face photo</strong>
-        <span>Frontal face works best</span>
+        <span>Frontal, well-lit face works best</span>
       </div>
     </label>
     <input type="file" id="fileInput" accept="image/*" style="display:none">
@@ -349,46 +192,60 @@
           <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
           <polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
         </svg>
-        Photo Library
+        Gallery
       </label>
       <label class="btn-upload primary" for="cameraInput">
         <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
           <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
           <circle cx="12" cy="13" r="4"/>
         </svg>
-        Take Photo
+        Camera
       </label>
       <input type="file" id="cameraInput" accept="image/*" capture="user" style="display:none">
     </div>
   </div>
 
-  <!-- ── Try-On Screen ── -->
+  <!-- Try-on screen -->
   <div id="tryonScreen">
 
     <div class="canvas-wrap" id="canvasWrap">
       <canvas id="mainCanvas"></canvas>
       <button class="arr-btn left" onclick="step(-1)">&#8249;</button>
       <button class="arr-btn right" onclick="step(1)">&#8250;</button>
-      <div class="loading-overlay" id="loadingOverlay">
+      <div class="loading-overlay show" id="loadingOverlay">
         <div class="spinner"></div>
-        <div class="loading-text" id="loadingText">Detecting face…</div>
+        <div class="loading-text" id="loadingText">Loading face detection models…</div>
       </div>
-      <div class="error-banner" id="errorBanner"></div>
       <div class="flash-overlay" id="flashEl"></div>
+    </div>
+
+    <!-- Manual adjustment (shown if detection fails) -->
+    <div class="adjust-panel" id="adjustPanel">
+      <div class="adjust-title">✱ Manual Adjustment — drag sliders to fit glasses</div>
+      <div class="slider-row">
+        <span class="slider-lbl">Up / Down</span>
+        <input type="range" id="slY" min="-60" max="60" value="0" oninput="nudge()">
+      </div>
+      <div class="slider-row">
+        <span class="slider-lbl">Left / Right</span>
+        <input type="range" id="slX" min="-80" max="80" value="0" oninput="nudge()">
+      </div>
+      <div class="slider-row">
+        <span class="slider-lbl">Size</span>
+        <input type="range" id="slS" min="60" max="160" value="100" oninput="nudge()">
+      </div>
     </div>
 
     <div class="info-bar">
       <div class="g-name" id="gName">WAYFARER</div>
       <div class="g-count" id="gCount">1 / 7</div>
     </div>
-
     <div class="dots" id="dots"></div>
 
     <div class="opt-row">
       <span class="opt-lbl">Frame</span>
       <div id="swatches" style="display:flex;gap:8px;flex-wrap:wrap"></div>
     </div>
-
     <div class="opt-row">
       <span class="opt-lbl">Lens</span>
       <button class="tint-btn on" onclick="setTint('clear',this)">Clear</button>
@@ -400,9 +257,7 @@
 
     <div class="bottom-row">
       <button class="action-btn" onclick="resetApp()">
-        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-          <polyline points="15 18 9 12 15 6"/>
-        </svg>
+        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>
         New Photo
       </button>
       <button class="action-btn accent-btn" onclick="savePhoto()">
@@ -410,17 +265,16 @@
           <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
           <polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
         </svg>
-        Save
+        Save Photo
       </button>
     </div>
-
-    <div class="hint">← swipe or tap arrows to change glasses →</div>
+    <div class="hint">← swipe or tap arrows to change style →</div>
   </div>
 
 </div>
 
 <script>
-// ── Config ─────────────────────────────────────────────────────────────────
+// ── Glasses & colors config ─────────────────────────────────────────────────
 const GLASSES = [
   { name:"WAYFARER",  fn: gWayfarer  },
   { name:"AVIATOR",   fn: gAviator   },
@@ -430,52 +284,66 @@ const GLASSES = [
   { name:"OVERSIZED", fn: gOversized },
   { name:"SPORTY",    fn: gSporty    },
 ];
-
 const FRAME_COLORS = [
-  {l:"Ebony",  v:"#111111"}, {l:"Gold",  v:"#c8a83a"}, {l:"Silver",v:"#b0b0b0"},
-  {l:"Tort",   v:"#8B4513"}, {l:"Rose",  v:"#b5697a"}, {l:"Navy",  v:"#1e3a5f"},
-  {l:"White",  v:"#e8e8e8"},
+  {l:"Ebony",v:"#111"},{l:"Gold",v:"#c8a83a"},{l:"Silver",v:"#b0b0b0"},
+  {l:"Tort",v:"#8B4513"},{l:"Rose",v:"#b5697a"},{l:"Navy",v:"#1e3a5f"},{l:"White",v:"#e8e8e8"},
 ];
-
 const TINTS = {
   clear:null, smoke:"rgba(0,0,0,0.38)", brown:"rgba(90,50,10,0.36)",
   blue:"rgba(20,70,200,0.30)", rose:"rgba(200,70,120,0.30)"
 };
 
-let imgEl = null, imgW = 0, imgH = 0;
-let eyes = null;           // {lx,ly,rx,ry,fw}
-let curGlass = 0;
-let frameCol = FRAME_COLORS[0].v;
-let lensTint = "clear";
-let swipeX = null, mDown = false;
+let imgEl=null, imgW=0, imgH=0;
+let eyes=null;          // {lx,ly,rx,ry}  — detected or manual
+let manualOffset={x:0,y:0,scale:1};
+let usingManual=false;
+let curGlass=0, frameCol=FRAME_COLORS[0].v, lensTint="clear";
+let swipeX=null, mDown=false;
+let modelsLoaded=false;
 
-const canvas  = document.getElementById('mainCanvas');
-const ctx     = canvas.getContext('2d');
+const canvas=document.getElementById('mainCanvas');
+const ctx=canvas.getContext('2d');
 
-// ── Build UI ───────────────────────────────────────────────────────────────
-const dotsEl = document.getElementById('dots');
-GLASSES.forEach((_,i) => {
-  const d = document.createElement('div');
-  d.className = 'dot' + (i===0?' on':'');
-  d.onclick = () => selGlass(i);
+// ── Build UI ────────────────────────────────────────────────────────────────
+const dotsEl=document.getElementById('dots');
+GLASSES.forEach((_,i)=>{
+  const d=document.createElement('div');
+  d.className='dot'+(i===0?' on':'');
+  d.onclick=()=>selGlass(i);
   dotsEl.appendChild(d);
 });
 
-const swatchCont = document.getElementById('swatches');
-FRAME_COLORS.forEach((c,i) => {
-  const s = document.createElement('div');
-  s.className = 'swatch' + (i===0?' on':'');
-  s.style.background = c.v; s.title = c.l;
-  s.onclick = () => {
-    frameCol = c.v;
-    document.querySelectorAll('.swatch').forEach(x=>x.classList.remove('on'));
-    s.classList.add('on');
-    render();
-  };
+const swatchCont=document.getElementById('swatches');
+FRAME_COLORS.forEach((c,i)=>{
+  const s=document.createElement('div');
+  s.className='swatch'+(i===0?' on':'');
+  s.style.background=c.v; s.title=c.l;
+  s.onclick=()=>{ frameCol=c.v; document.querySelectorAll('.swatch').forEach(x=>x.classList.remove('on')); s.classList.add('on'); render(); };
   swatchCont.appendChild(s);
 });
 
-// ── File inputs ────────────────────────────────────────────────────────────
+// ── Load face-api models from CDN ───────────────────────────────────────────
+const MODEL_URL = 'https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/weights';
+
+async function loadModels() {
+  try {
+    setLoadingText('Loading AI models…');
+    await Promise.all([
+      faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
+      faceapi.nets.faceLandmark68TinyNet.loadFromUri(MODEL_URL),
+    ]);
+    modelsLoaded = true;
+    // Hide overlay only after models are loaded — then wait for a photo
+    document.getElementById('loadingOverlay').classList.remove('show');
+  } catch(e) {
+    console.error('Model load failed:', e);
+    modelsLoaded = false;
+    document.getElementById('loadingOverlay').classList.remove('show');
+  }
+}
+loadModels();
+
+// ── File inputs ─────────────────────────────────────────────────────────────
 document.getElementById('fileInput').onchange   = e => loadFile(e.target.files[0]);
 document.getElementById('cameraInput').onchange = e => loadFile(e.target.files[0]);
 
@@ -486,278 +354,250 @@ function loadFile(file) {
     const img = new Image();
     img.onload = () => {
       imgEl = img;
-      // Limit canvas size for performance
       const MAX = 900;
-      const scale = Math.min(1, MAX / Math.max(img.width, img.height));
-      imgW = Math.round(img.width  * scale);
-      imgH = Math.round(img.height * scale);
-      canvas.width  = imgW;
-      canvas.height = imgH;
-
-      // Draw photo immediately
+      const sc = Math.min(1, MAX / Math.max(img.width, img.height));
+      imgW = Math.round(img.width * sc);
+      imgH = Math.round(img.height * sc);
+      canvas.width = imgW; canvas.height = imgH;
       ctx.drawImage(img, 0, 0, imgW, imgH);
 
-      // Show try-on screen
       document.getElementById('uploadScreen').style.display = 'none';
       document.getElementById('tryonScreen').style.display = 'flex';
 
-      // Detect face
-      detectFace(ev.target.result, file.type || 'image/jpeg');
+      detectEyes();
     };
     img.src = ev.target.result;
   };
   reader.readAsDataURL(file);
 }
 
-// ── Face detection via Claude ──────────────────────────────────────────────
-async function detectFace(dataUrl, mimeType) {
-  showLoading(true, 'Detecting face…');
-  hideError();
-  eyes = null;
+// ── Face detection with face-api.js ────────────────────────────────────────
+async function detectEyes() {
+  showLoading(true, modelsLoaded ? 'Detecting face…' : 'Loading models, please wait…');
+  usingManual = false;
+  manualOffset = {x:0, y:0, scale:1};
+  document.getElementById('adjustPanel').classList.remove('show');
+
+  // Wait for models if still loading
+  let waited = 0;
+  while (!modelsLoaded && waited < 12000) {
+    await new Promise(r => setTimeout(r, 300));
+    waited += 300;
+  }
+
+  if (!modelsLoaded) {
+    fallbackPosition();
+    return;
+  }
 
   try {
-    const base64 = dataUrl.split(',')[1];
-    const safeMime = mimeType.startsWith('image/') ? mimeType : 'image/jpeg';
+    const options = new faceapi.TinyFaceDetectorOptions({ inputSize: 416, scoreThreshold: 0.4 });
+    const result = await faceapi
+      .detectSingleFace(canvas, options)
+      .withFaceLandmarks(true);   // true = use tiny landmark model
 
-    const resp = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model: "claude-sonnet-4-20250514",
-        max_tokens: 300,
-        messages: [{
-          role: "user",
-          content: [
-            { type:"image", source:{ type:"base64", media_type: safeMime, data: base64 } },
-            { type:"text", text:
-`This image is ${imgW}px wide × ${imgH}px tall.
-Locate the person's face and return ONLY this JSON (no markdown, no commentary):
-{
-  "detected": true,
-  "leftEye":  {"x": <px>, "y": <px>},
-  "rightEye": {"x": <px>, "y": <px>},
-  "faceWidth": <px>
-}
-leftEye  = person's anatomical LEFT eye (appears on RIGHT side of image).
-rightEye = person's anatomical RIGHT eye (appears on LEFT side of image).
-x,y are pixel coordinates in the ${imgW}×${imgH} image.
-faceWidth is approximate face width in pixels.
-If no face visible return {"detected":false}.`
-            }
-          ]
-        }]
-      })
-    });
-
-    const data = await resp.json();
-    if (data.error) throw new Error(data.error.message || 'API error');
-
-    const raw = data.content.map(b => b.text||'').join('').trim().replace(/```json|```/g,'').trim();
-    const parsed = JSON.parse(raw);
-
-    if (!parsed.detected) {
-      showError("No face detected. Try a clearer frontal photo.");
-      showLoading(false);
-      render(); // show photo without glasses
+    if (!result) {
+      fallbackPosition();
       return;
     }
 
-    eyes = {
-      lx: parsed.leftEye.x,  ly: parsed.leftEye.y,
-      rx: parsed.rightEye.x, ry: parsed.rightEye.y,
-      fw: parsed.faceWidth
-    };
+    const lm = result.landmarks;
+    // face-api landmark indices for eyes:
+    // Left eye (person's left, image right): points 36-41 → use 39 (outer) & 36 (inner) → centre
+    // Right eye (person's right, image left): points 42-47
+    const le = lm.getLeftEye();   // array of points
+    const re = lm.getRightEye();
 
+    const avg = pts => ({ x: pts.reduce((s,p)=>s+p.x,0)/pts.length, y: pts.reduce((s,p)=>s+p.y,0)/pts.length });
+    const lc = avg(le);
+    const rc = avg(re);
+
+    eyes = { lx: lc.x, ly: lc.y, rx: rc.x, ry: rc.y };
     showLoading(false);
     render();
 
   } catch(e) {
-    console.error(e);
-    showError("Detection failed — glasses placed at default position.");
-    // Fallback: guess eye positions from image centre
-    eyes = {
-      lx: imgW * 0.60, ly: imgH * 0.42,
-      rx: imgW * 0.40, ry: imgH * 0.42,
-      fw: imgW * 0.45
-    };
-    showLoading(false);
-    render();
+    console.error('Detection error', e);
+    fallbackPosition();
   }
 }
 
-// ── Render ─────────────────────────────────────────────────────────────────
+function fallbackPosition() {
+  // Best-guess centre of face
+  eyes = {
+    lx: imgW * 0.595, ly: imgH * 0.40,
+    rx: imgW * 0.405, ry: imgH * 0.40,
+  };
+  usingManual = true;
+  document.getElementById('adjustPanel').classList.add('show');
+  // Reset sliders
+  document.getElementById('slX').value = 0;
+  document.getElementById('slY').value = 0;
+  document.getElementById('slS').value = 100;
+  showLoading(false);
+  render();
+}
+
+// Manual adjustment via sliders
+function nudge() {
+  manualOffset = {
+    x: parseFloat(document.getElementById('slX').value),
+    y: parseFloat(document.getElementById('slY').value),
+    scale: parseFloat(document.getElementById('slS').value) / 100,
+  };
+  render();
+}
+
+// ── Render ──────────────────────────────────────────────────────────────────
 function render() {
   ctx.clearRect(0, 0, imgW, imgH);
   if (imgEl) ctx.drawImage(imgEl, 0, 0, imgW, imgH);
-  if (eyes)  drawGlasses();
+  if (eyes) drawGlasses();
 }
 
 function drawGlasses() {
-  const { lx, ly, rx, ry } = eyes;
-  const mx = (lx + rx) / 2, my = (ly + ry) / 2;
-  const dx = lx - rx, dy = ly - ry;
-  const angle = Math.atan2(dy, dx);
-  const eyeDist = Math.sqrt(dx*dx + dy*dy);
-  const lr = eyeDist * 0.40;
-  const lw = Math.max(2, lr * 0.085);
-  const half = eyeDist / 2;
-  const col = frameCol;
-  const tint = TINTS[lensTint];
-  const fn = GLASSES[curGlass].fn;
+  let { lx, ly, rx, ry } = eyes;
+
+  // Apply manual offsets
+  const ox = manualOffset.x, oy = manualOffset.y, os = manualOffset.scale;
+  lx = lx*os + ox;  ly = ly*os + oy;
+  rx = rx*os + ox;  ry = ry*os + oy;
+
+  const mx=(lx+rx)/2, my=(ly+ry)/2;
+  const dx=lx-rx, dy=ly-ry;
+  const angle=Math.atan2(dy,dx);
+  const eyeDist=Math.sqrt(dx*dx+dy*dy);
+  const lr=eyeDist*0.42;
+  const lw=Math.max(2, lr*0.085);
+  const half=eyeDist/2;
+  const tint=TINTS[lensTint];
+  const fn=GLASSES[curGlass].fn;
 
   ctx.save();
-  ctx.translate(mx, my);
+  ctx.translate(mx,my);
   ctx.rotate(angle);
 
-  const sides = [-half, half];
-
-  // Lens fill
   if (tint) {
-    sides.forEach(ex => {
-      ctx.save(); ctx.fillStyle = tint;
-      ctx.beginPath(); fn(ctx, ex, 0, lr, ex < 0); ctx.fill();
-      ctx.restore();
+    [-half,half].forEach(ex=>{
+      ctx.save(); ctx.fillStyle=tint;
+      ctx.beginPath(); fn(ctx,ex,0,lr,ex<0); ctx.fill(); ctx.restore();
     });
   }
 
-  // Lens stroke
-  ctx.strokeStyle = col; ctx.lineWidth = lw;
-  ctx.lineCap = 'round'; ctx.lineJoin = 'round';
-  sides.forEach(ex => {
-    ctx.beginPath(); fn(ctx, ex, 0, lr, ex < 0); ctx.stroke();
-  });
+  ctx.strokeStyle=frameCol; ctx.lineWidth=lw; ctx.lineCap='round'; ctx.lineJoin='round';
+  [-half,half].forEach(ex=>{ ctx.beginPath(); fn(ctx,ex,0,lr,ex<0); ctx.stroke(); });
 
   // Bridge
-  ctx.beginPath();
-  ctx.moveTo(-half + lr*0.72, 0);
-  ctx.lineTo( half - lr*0.72, 0);
-  ctx.lineWidth = lw * 0.7; ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(-half+lr*0.72,0); ctx.lineTo(half-lr*0.72,0);
+  ctx.lineWidth=lw*0.7; ctx.stroke();
 
   // Arms
-  const armLen = eyeDist * 0.7;
-  ctx.lineWidth = lw * 0.65;
-  [[-1, -half - lr*0.9], [1, half + lr*0.9]].forEach(([dir, ex]) => {
-    ctx.beginPath();
-    ctx.moveTo(ex, 0);
-    ctx.bezierCurveTo(ex+dir*armLen*0.3, 0, ex+dir*armLen*0.7, lr*0.28, ex+dir*armLen, lr*0.35);
+  const armLen=eyeDist*0.72;
+  ctx.lineWidth=lw*0.65;
+  [[-1,-half-lr*0.9],[1,half+lr*0.9]].forEach(([dir,ex])=>{
+    ctx.beginPath(); ctx.moveTo(ex,0);
+    ctx.bezierCurveTo(ex+dir*armLen*0.3,0, ex+dir*armLen*0.7,lr*0.28, ex+dir*armLen,lr*0.35);
     ctx.stroke();
   });
 
   ctx.restore();
 }
 
-// ── Lens shapes ────────────────────────────────────────────────────────────
+// ── Lens shapes ─────────────────────────────────────────────────────────────
 function rr(c,x,y,w,h,r){
-  if(c.roundRect){c.roundRect(x,y,w,h,r);return;}
   r=Math.min(r,w/2,h/2);
+  if(c.roundRect){c.roundRect(x,y,w,h,r);return;}
   c.moveTo(x+r,y);c.lineTo(x+w-r,y);c.quadraticCurveTo(x+w,y,x+w,y+r);
   c.lineTo(x+w,y+h-r);c.quadraticCurveTo(x+w,y+h,x+w-r,y+h);
   c.lineTo(x+r,y+h);c.quadraticCurveTo(x,y+h,x,y+h-r);
   c.lineTo(x,y+r);c.quadraticCurveTo(x,y,x+r,y);c.closePath();
 }
-
-function gWayfarer(c,cx,cy,r){
-  const w=r*1.05,h=r*0.82;
-  rr(c,cx-w,cy-h*0.55,w*2,h*1.1,r*0.22);
-}
+function gWayfarer(c,cx,cy,r){ const w=r*1.05,h=r*0.82; rr(c,cx-w,cy-h*.55,w*2,h*1.1,r*.22); }
 function gAviator(c,cx,cy,r){
-  c.arc(cx,cy-r*0.08,r*0.72,0,Math.PI*2);
-  const x1=cx-r*0.72,x2=cx+r*0.72;
-  c.moveTo(x1,cy-r*0.08);
-  c.bezierCurveTo(x1-r*0.38,cy+r*0.65,cx,cy+r*1.1,x2+r*0.38,cy+r*0.65);
-  c.lineTo(x2,cy-r*0.08);
+  c.arc(cx,cy-r*.08,r*.72,0,Math.PI*2);
+  const x1=cx-r*.72,x2=cx+r*.72;
+  c.moveTo(x1,cy-r*.08);
+  c.bezierCurveTo(x1-r*.38,cy+r*.65,cx,cy+r*1.1,x2+r*.38,cy+r*.65);
+  c.lineTo(x2,cy-r*.08);
 }
-function gRound(c,cx,cy,r){ c.arc(cx,cy,r*0.88,0,Math.PI*2); }
+function gRound(c,cx,cy,r){ c.arc(cx,cy,r*.88,0,Math.PI*2); }
 function gCateye(c,cx,cy,r,isLeft){
-  const w=r*1.05,h=r*0.78,fl=isLeft?1:-1;
-  c.moveTo(cx-w,cy+h*0.25);
-  c.bezierCurveTo(cx-w,cy-h*0.55,cx,cy-h*0.75,cx+fl*w*0.52,cy-h*0.98);
-  c.bezierCurveTo(cx+fl*w,cy-h*0.45,cx+w,cy-h*0.15,cx+w,cy+h*0.25);
-  c.bezierCurveTo(cx+w,cy+h*0.45,cx-w,cy+h*0.45,cx-w,cy+h*0.25);
+  const w=r*1.05,h=r*.78,fl=isLeft?1:-1;
+  c.moveTo(cx-w,cy+h*.25);
+  c.bezierCurveTo(cx-w,cy-h*.55,cx,cy-h*.75,cx+fl*w*.52,cy-h*.98);
+  c.bezierCurveTo(cx+fl*w,cy-h*.45,cx+w,cy-h*.15,cx+w,cy+h*.25);
+  c.bezierCurveTo(cx+w,cy+h*.45,cx-w,cy+h*.45,cx-w,cy+h*.25);
 }
-function gRimless(c,cx,cy,r){ c.arc(cx,cy,r*0.86,0.12,Math.PI-0.12); }
-function gOversized(c,cx,cy,r){ rr(c,cx-r*1.25,cy-r*0.5,r*2.5,r*1.05,r*0.28); }
+function gRimless(c,cx,cy,r){ c.arc(cx,cy,r*.86,0.12,Math.PI-0.12); }
+function gOversized(c,cx,cy,r){ rr(c,cx-r*1.25,cy-r*.5,r*2.5,r*1.05,r*.28); }
 function gSporty(c,cx,cy,r){
-  c.moveTo(cx-r*1.1,cy-r*0.18);
-  c.bezierCurveTo(cx-r*1.1,cy-r*0.92,cx+r*1.1,cy-r*0.92,cx+r*1.1,cy-r*0.18);
-  c.bezierCurveTo(cx+r*1.1,cy+r*0.45,cx,cy+r*0.6,cx-r*1.1,cy+r*0.45);
+  c.moveTo(cx-r*1.1,cy-r*.18);
+  c.bezierCurveTo(cx-r*1.1,cy-r*.92,cx+r*1.1,cy-r*.92,cx+r*1.1,cy-r*.18);
+  c.bezierCurveTo(cx+r*1.1,cy+r*.45,cx,cy+r*.6,cx-r*1.1,cy+r*.45);
   c.closePath();
 }
 
-// ── State helpers ──────────────────────────────────────────────────────────
+// ── UI helpers ──────────────────────────────────────────────────────────────
 function selGlass(i){
-  curGlass = i;
-  document.getElementById('gName').textContent  = GLASSES[i].name;
-  document.getElementById('gCount').textContent = `${i+1} / ${GLASSES.length}`;
+  curGlass=i;
+  document.getElementById('gName').textContent=GLASSES[i].name;
+  document.getElementById('gCount').textContent=`${i+1} / ${GLASSES.length}`;
   document.querySelectorAll('.dot').forEach((d,j)=>d.classList.toggle('on',i===j));
   render();
 }
-
-function setTint(t, btn){
-  lensTint = t;
+function setTint(t,btn){
+  lensTint=t;
   document.querySelectorAll('.tint-btn').forEach(b=>b.classList.remove('on'));
-  btn.classList.add('on');
-  render();
+  btn.classList.add('on'); render();
 }
+function step(dir){ selGlass((curGlass+dir+GLASSES.length)%GLASSES.length); flash(); }
 
-function step(dir){
-  selGlass((curGlass + dir + GLASSES.length) % GLASSES.length);
-  flash();
-}
-
-const flashEl = document.getElementById('flashEl');
+const flashEl=document.getElementById('flashEl');
 function flash(){ flashEl.classList.add('on'); setTimeout(()=>flashEl.classList.remove('on'),180); }
-
-function showLoading(on, msg=''){
-  const el = document.getElementById('loadingOverlay');
-  el.classList.toggle('show', on);
-  if(msg) document.getElementById('loadingText').textContent = msg;
+function showLoading(on,msg){
+  document.getElementById('loadingOverlay').classList.toggle('show',on);
+  if(msg) setLoadingText(msg);
 }
-function showError(msg){ const e=document.getElementById('errorBanner'); e.textContent=msg; e.classList.add('show'); setTimeout(()=>e.classList.remove('show'),5000); }
-function hideError(){ document.getElementById('errorBanner').classList.remove('show'); }
+function setLoadingText(t){ document.getElementById('loadingText').textContent=t; }
 
 function resetApp(){
-  imgEl=null; eyes=null; curGlass=0;
+  imgEl=null; eyes=null; curGlass=0; usingManual=false;
+  manualOffset={x:0,y:0,scale:1};
   document.getElementById('uploadScreen').style.display='flex';
   document.getElementById('tryonScreen').style.display='none';
+  document.getElementById('adjustPanel').classList.remove('show');
   document.getElementById('fileInput').value='';
   document.getElementById('cameraInput').value='';
   selGlass(0);
 }
-
 function savePhoto(){
   render();
-  const link = document.createElement('a');
-  link.download = 'specs-tryon.png';
-  link.href = canvas.toDataURL('image/png');
-  link.click();
+  const a=document.createElement('a');
+  a.download='specs-tryon.png';
+  a.href=canvas.toDataURL('image/png');
+  a.click();
 }
 
-// ── Swipe ──────────────────────────────────────────────────────────────────
-const wrap = document.getElementById('canvasWrap');
-wrap.addEventListener('touchstart', e=>{ swipeX=e.touches[0].clientX; },{passive:true});
-wrap.addEventListener('touchend',   e=>{
-  if(swipeX===null) return;
-  const dx = e.changedTouches[0].clientX - swipeX;
-  if(Math.abs(dx)>28) step(dx<0?1:-1);
+// ── Swipe ────────────────────────────────────────────────────────────────────
+const wrap=document.getElementById('canvasWrap');
+wrap.addEventListener('touchstart',e=>{swipeX=e.touches[0].clientX;},{passive:true});
+wrap.addEventListener('touchend',e=>{
+  if(swipeX===null)return;
+  const dx=e.changedTouches[0].clientX-swipeX;
+  if(Math.abs(dx)>28)step(dx<0?1:-1);
   swipeX=null;
 });
-wrap.addEventListener('mousedown',  e=>{ mDown=true; swipeX=e.clientX; });
-window.addEventListener('mouseup',  e=>{
-  if(!mDown) return;
-  const dx = e.clientX-swipeX;
-  if(Math.abs(dx)>28) step(dx<0?1:-1);
+wrap.addEventListener('mousedown',e=>{mDown=true;swipeX=e.clientX;});
+window.addEventListener('mouseup',e=>{
+  if(!mDown)return;
+  const dx=e.clientX-swipeX;
+  if(Math.abs(dx)>28)step(dx<0?1:-1);
   mDown=false;
 });
-window.addEventListener('keydown', e=>{
-  if(e.key==='ArrowRight') step(1);
-  if(e.key==='ArrowLeft')  step(-1);
+window.addEventListener('keydown',e=>{
+  if(e.key==='ArrowRight')step(1);
+  if(e.key==='ArrowLeft')step(-1);
 });
-
-// ── PWA Service Worker ─────────────────────────────────────────────────────
-if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('sw.js').catch(() => {});
-}
 </script>
 </body>
 </html>
